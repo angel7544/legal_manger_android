@@ -48,18 +48,18 @@ This diagram illustrates how the frontend components interact with the local dev
 
 ```mermaid
 graph TD
-    UI[React Native / Expo UI] --> Router[Expo Router]
-    Router --> Screens[Screens: Add Case, Search, Settings]
+    UI["React Native / Expo UI"] --> Router["Expo Router"]
+    Router --> Screens["Screens: Add Case, Search, Settings"]
     
-    Screens --> DB_Layer[Database Abstraction Layer]
-    DB_Layer --> SQLite[(Expo SQLite)]
+    Screens --> DB_Layer["Database Abstraction Layer"]
+    DB_Layer --> SQLite[("Expo SQLite")]
     
-    Screens --> NativeAPIs[Native Expo APIs]
-    NativeAPIs --> Print[Expo Print HTML to PDF]
-    NativeAPIs --> Camera[Expo Camera QR Scanner]
-    NativeAPIs --> FileSys[Expo File System / Sharing]
+    Screens --> NativeAPIs["Native Expo APIs"]
+    NativeAPIs --> Print["Expo Print HTML to PDF"]
+    NativeAPIs --> Camera["Expo Camera QR Scanner"]
+    NativeAPIs --> FileSys["Expo File System / Sharing"]
     
-    FileSys --> Backup[(Local Backup .db)]
+    FileSys --> Backup[("Local Backup .db")]
 ```
 
 ### 5.2 User Flow Diagram
@@ -67,26 +67,26 @@ This flowchart demonstrates the typical journey of an administrator adding a new
 
 ```mermaid
 flowchart TD
-    A([App Launch]) --> B{Is Authenticated?}
-    B -- No --> C[Login Screen]
+    A(["App Launch"]) --> B{"Is Authenticated?"}
+    B -- "No" --> C["Login Screen"]
     C --> B
-    B -- Yes --> D[Dashboard / Agenda]
+    B -- "Yes" --> D["Dashboard / Agenda"]
     
-    D --> E{Action}
-    E -- Add File --> F[Input Case Metadata]
-    F --> G[Assign Physical Rack/Shelf]
-    G --> H[Save to SQLite]
-    H --> I[Print QR Label]
+    D --> E{"Action"}
+    E -- "Add File" --> F["Input Case Metadata"]
+    F --> G["Assign Physical Rack/Shelf"]
+    G --> H["Save to SQLite"]
+    H --> I["Print QR Label"]
     I --> D
     
-    E -- Scan QR --> J[Camera Scanner Opens]
-    J --> K[QR Decoded to Case ID]
-    K --> L[View Case Details]
-    L --> M[Log New Hearing]
+    E -- "Scan QR" --> J["Camera Scanner Opens"]
+    J --> K["QR Decoded to Case ID"]
+    K --> L["View Case Details"]
+    L --> M["Log New Hearing"]
     M --> D
     
-    E -- Search --> N[Type Query]
-    N --> O[Real-time DB Filter]
+    E -- "Search" --> N["Type Query"]
+    N --> O["Real-time DB Filter"]
     O --> L
 ```
 
@@ -173,7 +173,7 @@ erDiagram
     }
 
     CASES ||--o{ HEARINGS : "has"
-    CASES ||--o{ FILE_MOVEMENTS : "tracks movements"
+    CASES ||--o{ FILE_MOVEMENTS : "tracks_movements"
     CASES ||--o{ DOCUMENT_RECORDS : "contains"
     CASES ||--o{ AUDIT_LOGS : "generates"
     CASES ||--o{ REMINDERS : "has"
@@ -191,11 +191,11 @@ sequenceDiagram
     participant Cloud_LLM
 
     User->>App: "What happened in the last hearing for File CIV-2026-0001?"
-    App->>SQLite: Query hearings for case CIV-2026-0001
-    SQLite-->>App: Return raw hearing notes & dates
-    App->>Local_RAG: Format notes as Context Prompt
-    Local_RAG->>Cloud_LLM: Send Context + User Question via Secure API
+    App->>SQLite: "Query hearings for case CIV-2026-0001"
+    SQLite-->>App: "Return raw hearing notes & dates"
+    App->>Local_RAG: "Format notes as Context Prompt"
+    Local_RAG->>Cloud_LLM: "Send Context + User Question via Secure API"
     Cloud_LLM-->>Local_RAG: "The last hearing on June 5th was adjourned because the opposite counsel failed to appear."
-    Local_RAG-->>App: Process response
-    App-->>User: Display conversational response
+    Local_RAG-->>App: "Process response"
+    App-->>User: "Display conversational response"
 ```
