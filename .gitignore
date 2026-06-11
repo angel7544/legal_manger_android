@@ -53,6 +53,7 @@ ios/*.xcodeproj/project.xcworkspace/xcuserdata/
 android/.gradle/
 android/.idea/
 android/local.properties
+android/gradle.properties
 android/build/
 android/app/.cxx/
 *.iml
