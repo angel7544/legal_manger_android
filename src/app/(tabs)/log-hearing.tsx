@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert, TouchableOpacity, Platform } from 'react-native';
 import { TextInput, Button, Text, Card, HelperText, useTheme, List, Divider, FAB, SegmentedButtons, ActivityIndicator } from 'react-native-paper';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
-import { getCaseById, searchCases, addHearing, getDashboardHearings, updateHearingStatus, deleteHearings } from '../../database/db';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { getCaseById, searchCases, addHearing, updateHearing, getDashboardHearings, updateHearingStatus, deleteHearings } from '../../database/db';
 import { Case, Hearing } from '../../types/db';
 import { ScreenBackground } from '../../components/ScreenBackground';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -92,17 +93,22 @@ export default function LogHearingTabScreen() {
     );
   };
 
-  const handleLoadCase = async (caseId: number) => {
+  const handleEditHearing = async (hearing: any) => {
     try {
       setLoadingCase(true);
-      const c = await getCaseById(caseId);
+      const c = await getCaseById(hearing.case_id);
       if (c) {
         setSelectedCase(c);
+        setEditingHearingId(hearing.id);
+        setHearingDate(hearing.hearing_date || '');
+        setNextAction(hearing.next_action || '');
+        setNotes(hearing.hearing_notes || '');
+        setHearingStatus(hearing.status || 'Pending');
         scrollViewRef.current?.scrollTo({ y: 0, animated: true });
       }
     } catch (err) {
-      console.error('Error loading case in form:', err);
-      Alert.alert('Error', 'Failed to load case details into the form.');
+      console.error('Error loading hearing in form:', err);
+      Alert.alert('Error', 'Failed to load hearing details into the form.');
     } finally {
       setLoadingCase(false);
     }
@@ -116,8 +122,12 @@ export default function LogHearingTabScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Case[]>([]);
   const [searching, setSearching] = useState(false);
+  const [hearingSearchQuery, setHearingSearchQuery] = useState('');
 
   // Form State
+  const [editingHearingId, setEditingHearingId] = useState<number | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+
   const [hearingDate, setHearingDate] = useState(() => {
     const today = new Date();
     const yyyy = today.getFullYear();
@@ -132,6 +142,17 @@ export default function LogHearingTabScreen() {
   // Errors
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [saving, setSaving] = useState(false);
+
+  const onChangeDate = (event: any, selectedDate?: Date) => {
+    setShowDatePicker(Platform.OS === 'ios');
+    if (selectedDate) {
+      const yyyy = selectedDate.getFullYear();
+      const mm = String(selectedDate.getMonth() + 1).padStart(2, '0');
+      const dd = String(selectedDate.getDate()).padStart(2, '0');
+      setHearingDate(`${yyyy}-${mm}-${dd}`);
+      if (errors.hearingDate) setErrors({ ...errors, hearingDate: '' });
+    }
+  };
 
   // Load pre-selected case if caseId is passed
   useEffect(() => {
@@ -213,22 +234,34 @@ export default function LogHearingTabScreen() {
 
     setSaving(true);
     try {
-      await addHearing(
-        selectedCase.id!,
-        hearingDate.trim(),
-        notes.trim(),
-        nextAction.trim(),
-        hearingStatus
-      );
+      if (editingHearingId) {
+        await updateHearing(
+          editingHearingId,
+          selectedCase.id!,
+          hearingDate.trim(),
+          notes.trim(),
+          nextAction.trim(),
+          hearingStatus
+        );
+      } else {
+        await addHearing(
+          selectedCase.id!,
+          hearingDate.trim(),
+          notes.trim(),
+          nextAction.trim(),
+          hearingStatus
+        );
+      }
 
-      Alert.alert('Success', 'Hearing details logged successfully!', [
+      Alert.alert('Success', `Hearing details ${editingHearingId ? 'updated' : 'logged'} successfully!`, [
         {
           text: 'OK',
           onPress: () => {
-            // Reset form details (except status & date which reset to default)
+            // Reset form details
             setNextAction('');
             setNotes('');
             setHearingStatus('Pending');
+            setEditingHearingId(null);
             loadHearings();
             // If it was redirected from case details, go back. Otherwise, clear selected case.
             if (preSelectedId) {
@@ -299,7 +332,10 @@ export default function LogHearingTabScreen() {
                       <Text style={styles.caseTagText}>ACTIVE RECORD SELECTED</Text>
                     </View>
                     {!preSelectedId && (
-                      <TouchableOpacity onPress={() => setSelectedCase(null)} style={styles.changeBadge}>
+                      <TouchableOpacity onPress={() => {
+                        setSelectedCase(null);
+                        setEditingHearingId(null);
+                      }} style={styles.changeBadge}>
                         <Text style={[styles.changeText, { color: theme.colors.primary }]}>Switch Case</Text>
                       </TouchableOpacity>
                     )}
@@ -359,8 +395,11 @@ export default function LogHearingTabScreen() {
                           style={[styles.resultItem, { borderBottomColor: theme.colors.outlineVariant }]}
                         >
                           <List.Item
-                            title={item.client_name}
-                            description={`File: ${item.file_number} • Case: ${item.case_number}`}
+                            title={`${item.client_name}${item.opposite_party ? ` vs ${item.opposite_party}` : ''}`}
+                            titleNumberOfLines={2}
+                            titleStyle={{ fontWeight: 'bold' }}
+                            description={`File: ${item.file_number} • Case: ${item.case_number}\nCourt: ${item.court_name || 'N/A'} • Type: ${item.case_type || 'N/A'}\nPhone: ${item.client_phone || 'N/A'}`}
+                            descriptionNumberOfLines={4}
                             left={(props) => (
                               <MaterialCommunityIcons
                                 name="file-document-outline"
@@ -401,6 +440,7 @@ export default function LogHearingTabScreen() {
               <SegmentedButtons
                 value={hearingStatus}
                 onValueChange={setHearingStatus}
+                theme={{ colors: { secondaryContainer: getStatusButtonColor(hearingStatus) + '25', onSecondaryContainer: getStatusButtonColor(hearingStatus) } }}
                 buttons={[
                   { value: 'Pending', label: 'Pending', icon: 'clock-outline' },
                   { value: 'Attended', label: 'Attended', icon: 'account-check-outline' },
@@ -413,19 +453,28 @@ export default function LogHearingTabScreen() {
                 Status selected: <Text style={{ fontWeight: 'bold' }}>{hearingStatus}</Text>
               </Text>
 
-              <TextInput
-                label="Hearing Date"
-                value={hearingDate}
-                onChangeText={(val) => {
-                  setHearingDate(val);
-                  if (errors.hearingDate) setErrors({ ...errors, hearingDate: '' });
-                }}
-                mode="outlined"
-                placeholder="YYYY-MM-DD"
-                error={!!errors.hearingDate}
-                style={styles.input}
-                left={<TextInput.Icon icon="calendar" />}
-              />
+              <TouchableOpacity onPress={() => setShowDatePicker(true)}>
+                <View pointerEvents="none">
+                  <TextInput
+                    label="Hearing Date"
+                    value={hearingDate}
+                    mode="outlined"
+                    placeholder="YYYY-MM-DD"
+                    error={!!errors.hearingDate}
+                    style={styles.input}
+                    left={<TextInput.Icon icon="calendar" />}
+                    editable={false}
+                  />
+                </View>
+              </TouchableOpacity>
+              {showDatePicker && (
+                <DateTimePicker
+                  value={new Date(hearingDate || Date.now())}
+                  mode="date"
+                  display="default"
+                  onChange={onChangeDate}
+                />
+              )}
               {errors.hearingDate ? <HelperText type="error" style={styles.errorText}>{errors.hearingDate}</HelperText> : null}
 
               <TextInput
@@ -459,7 +508,7 @@ export default function LogHearingTabScreen() {
                 contentStyle={styles.saveBtnContent}
                 icon="calendar-check"
               >
-                Save Hearing Log
+                {editingHearingId ? 'Update Hearing Log' : 'Save Hearing Log'}
               </Button>
             </Card.Content>
           </Card>
@@ -471,11 +520,46 @@ export default function LogHearingTabScreen() {
                 Recent Hearing Logs
               </Text>
 
+              <TextInput
+                label="Search hearing logs..."
+                value={hearingSearchQuery}
+                onChangeText={setHearingSearchQuery}
+                mode="outlined"
+                placeholder="Search by client, case, notes..."
+                left={<TextInput.Icon icon="magnify" />}
+                style={{ marginBottom: 16 }}
+                dense
+              />
+
               {loadingHearings && hearings.length === 0 ? (
                 <ActivityIndicator size="small" color={theme.colors.primary} style={{ marginVertical: 16 }} />
-              ) : hearings.length > 0 ? (
-                hearings.map((item) => {
-                  const isAttended = item.status === 'Attended';
+              ) : (
+                (() => {
+                  const filteredHearings = hearings.filter(h => {
+                    const q = hearingSearchQuery.toLowerCase();
+                    return (
+                      h.client_name?.toLowerCase().includes(q) ||
+                      h.file_number?.toLowerCase().includes(q) ||
+                      h.case_number?.toLowerCase().includes(q) ||
+                      h.hearing_notes?.toLowerCase().includes(q) ||
+                      h.next_action?.toLowerCase().includes(q) ||
+                      h.status?.toLowerCase().includes(q)
+                    );
+                  });
+
+                  if (filteredHearings.length === 0) {
+                    return (
+                      <View style={styles.emptyLogsContainer}>
+                        <MaterialCommunityIcons name="calendar-blank" size={32} color={theme.colors.outline} />
+                        <Text variant="bodyMedium" style={{ marginTop: 8, color: theme.colors.outline, fontSize: 13, textAlign: 'center' }}>
+                          {hearingSearchQuery ? 'No hearing logs match your search.' : 'No hearings have been logged yet.'}
+                        </Text>
+                      </View>
+                    );
+                  }
+
+                  return filteredHearings.map((item) => {
+                    const isAttended = item.status === 'Attended';
                   const isCompleted = item.status === 'Completed';
                   const isAdjourned = item.status === 'Adjourned';
                   const isTicked = isAttended || isCompleted;
@@ -492,7 +576,7 @@ export default function LogHearingTabScreen() {
                           <MaterialCommunityIcons
                             name={isTicked ? "check-circle" : "checkbox-blank-circle-outline"}
                             size={24}
-                            color={isTicked ? theme.colors.primary : theme.colors.outline}
+                            color={isTicked ? statusColor : theme.colors.outline}
                           />
                         </TouchableOpacity>
 
@@ -540,13 +624,13 @@ export default function LogHearingTabScreen() {
 
                         {/* Actions */}
                         <View style={{ flexDirection: 'column', alignItems: 'center' }}>
-                          {/* Load Case Button */}
+                          {/* Edit Hearing Button */}
                           <TouchableOpacity
                             style={styles.loadCaseBtn}
-                            onPress={() => item.case_id && handleLoadCase(item.case_id)}
+                            onPress={() => item.case_id && handleEditHearing(item)}
                           >
-                            <MaterialCommunityIcons name="pencil-box-multiple-outline" size={22} color={theme.colors.primary} style={{ opacity: 0.9 }} />
-                            <Text variant="labelSmall" style={{ color: theme.colors.primary, fontSize: 8, marginTop: 1, fontWeight: 'bold' }}>Load</Text>
+                            <MaterialCommunityIcons name="pencil-outline" size={22} color={theme.colors.primary} style={{ opacity: 0.9 }} />
+                            <Text variant="labelSmall" style={{ color: theme.colors.primary, fontSize: 8, marginTop: 1, fontWeight: 'bold' }}>Edit</Text>
                           </TouchableOpacity>
 
                           {/* Delete Button */}
@@ -562,14 +646,8 @@ export default function LogHearingTabScreen() {
                       <Divider style={styles.agendaDivider} />
                     </View>
                   );
-                })
-              ) : (
-                <View style={styles.emptyLogsContainer}>
-                  <MaterialCommunityIcons name="calendar-blank" size={32} color={theme.colors.outline} />
-                  <Text variant="bodyMedium" style={{ marginTop: 8, color: theme.colors.outline, fontSize: 13 }}>
-                    No hearings have been logged yet.
-                  </Text>
-                </View>
+                });
+                })()
               )}
             </Card.Content>
           </Card>

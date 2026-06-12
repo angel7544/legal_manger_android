@@ -535,6 +535,28 @@ export async function addHearing(caseId: number, hearingDate: string, notes: str
 }
 
 /**
+ * Updates an existing hearing record.
+ */
+export async function updateHearing(id: number, caseId: number, hearingDate: string, notes: string, nextAction: string, status: string = 'Pending'): Promise<void> {
+  const db = await getDB();
+  await db.execAsync('BEGIN TRANSACTION;');
+  try {
+    await db.runAsync(`
+      UPDATE hearings 
+      SET hearing_date = ?, hearing_notes = ?, next_action = ?, status = ? 
+      WHERE id = ?;
+    `, [hearingDate, notes, nextAction, status, id]);
+    
+    await db.runAsync('UPDATE cases SET next_hearing_date = ? WHERE id = ?;', [hearingDate, caseId]);
+    
+    await db.execAsync('COMMIT;');
+  } catch (error) {
+    await db.execAsync('ROLLBACK;');
+    throw error;
+  }
+}
+
+/**
  * Deletes multiple hearing records by their IDs.
  */
 export async function deleteHearings(ids: number[]): Promise<void> {

@@ -183,6 +183,15 @@ export default function SettingsScreen() {
             onPress={() => setHelpVisible(true)}
             style={styles.listItem}
           />
+          <Divider style={styles.itemDivider} />
+          <List.Item
+            title="Changelog"
+            description="View recent updates and version history"
+            left={(props) => <List.Icon {...props} icon="history" color={theme.colors.secondary} />}
+            right={() => <MaterialCommunityIcons name="chevron-right" size={24} color={theme.colors.outline} style={{ alignSelf: 'center', marginRight: 8 }} />}
+            onPress={() => router.push('../changelog')}
+            style={styles.listItem}
+          />
         </Card.Content>
       </Card>
 
@@ -264,7 +273,7 @@ export default function SettingsScreen() {
 
             <View style={styles.aboutHeaderText}>
               <Text variant="titleMedium" style={{ fontWeight: 'bold', color: theme.colors.primary }}>NyayaRack Android</Text>
-              <Text variant="bodySmall" style={{ color: theme.colors.outline }}>Version 2.3.0 • India • Offline-First</Text>
+              <Text variant="bodySmall" style={{ color: theme.colors.outline }}>Version 2.3.5 • India • Offline-First</Text>
             </View>
           </View>
           
@@ -390,14 +399,15 @@ export default function SettingsScreen() {
           <Dialog.ScrollArea style={{ paddingHorizontal: 0 }}>
             <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingVertical: 12 }}>
               <Text variant="titleMedium" style={{ fontWeight: 'bold', color: theme.colors.primary, marginBottom: 4 }}>
-                What's New in v2.3.0
+                What's New in v2.3.5
               </Text>
               <Text variant="bodySmall" style={{ opacity: 0.8, marginBottom: 8, paddingLeft: 18 }}>
-                • Added exact 10-digit validation for client phone numbers with real-time input formatting.{"\n"}
-                • Next hearing date now strictly validates for future dates.{"\n"}
-                • Implemented date pickers for filing date and next hearing date.{"\n"}
-                • Fixed keyboard overlay issues while adding or editing case files.{"\n"}
-                • Made Advocate Name and Physical Rack fields mandatory for better record completeness.
+                • Unified Search: Moved the global search bar to the Files screen.{"\n"}
+                • Smart Hearing Filters: Added a search bar in the Log Hearing screen.{"\n"}
+                • Rich Case Search Info: Case dropdowns now display court, type, and phone.{"\n"}
+                • Rack Visualizer: Drag and drop support for easy file organization.{"\n"}
+                • Security: Removed sensitive gradle properties from version control.{"\n"}
+                • Documentation: Added architecture.md with mermaid diagrams.
               </Text>
 
               <Divider style={{ marginVertical: 12 }} />

@@ -28,6 +28,7 @@ import {
 } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { DraxProvider, DraxView, DraxScrollView } from 'react-native-drax';
 import { searchCases, updateCase } from '../../database/db';
 import { Case } from '../../types/db';
 import { ScreenBackground } from '../../components/ScreenBackground';
@@ -118,17 +119,24 @@ function VisualFolder({ item, isSelected, isHighlighted, onPress }: VisualFolder
   };
 
   return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={styles.folderTouchable}>
-      <Animated.View
-        style={[
-          styles.folderContainer,
-          {
-            transform: [{ translateX: slideAnim }, { scale: pulseAnim }],
-            shadowOpacity: isSelected ? 0.3 : 0.1,
-          },
-        ]}
-      >
-        {/* Flat Folder Spine Card */}
+    <DraxView
+      dragPayload={item}
+      longPressDelay={250}
+      draggingStyle={{ opacity: 0.2 }}
+      hoverDraggingStyle={{ opacity: 0.9, elevation: 5, transform: [{ scale: 1.02 }] }}
+      style={{ width: '100%', marginBottom: 8 }}
+    >
+      <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={styles.folderTouchable}>
+        <Animated.View
+          style={[
+            styles.folderContainer,
+            {
+              transform: [{ translateX: slideAnim }, { scale: pulseAnim }],
+              shadowOpacity: isSelected ? 0.3 : 0.1,
+            },
+          ]}
+        >
+          {/* Flat Folder Spine Card */}
         <View
           style={[
             styles.folderSpine,
@@ -183,6 +191,7 @@ function VisualFolder({ item, isSelected, isHighlighted, onPress }: VisualFolder
         </View>
       </Animated.View>
     </TouchableOpacity>
+    </DraxView>
   );
 }
 
@@ -219,7 +228,7 @@ export default function RackVisualizerScreen() {
   const [assignCase, setAssignCase] = useState<Case | null>(null);
 
   // Layout refs to scroll horizontally to matching shelves
-  const shelfScrollViewRef = useRef<ScrollView | null>(null);
+  const shelfScrollViewRef = useRef<any>(null);
 
   const loadVisualizerData = async () => {
     try {
@@ -238,8 +247,8 @@ export default function RackVisualizerScreen() {
       const finalRacks = uniqueRacks.length > 0 ? uniqueRacks : ['Rack 1', 'Rack 2', 'Rack 3'];
       setRacks(finalRacks);
 
-      if (!activeRack || !finalRacks.includes(activeRack)) {
-        setActiveRack(finalRacks[0]);
+      if (!activeRack || (!finalRacks.includes(activeRack) && activeRack !== 'unassigned')) {
+        setActiveRack(finalRacks[0] || '');
       }
 
       setLoading(false);
@@ -320,7 +329,7 @@ export default function RackVisualizerScreen() {
     try {
       const updates: Partial<Case> = {
         file_status: 'In Office',
-        rack_number: editRack.trim() || activeRack,
+        rack_number: editRack.trim() || (activeRack === 'unassigned' ? '1' : activeRack),
         shelf_number: editShelf.trim() || '1',
         position_number: editPosition.trim() || '0',
       };
@@ -359,6 +368,11 @@ export default function RackVisualizerScreen() {
   });
 
   const displayShelves = activeRackShelves.length > 0 ? activeRackShelves : ['1', '2', '3', '4'];
+  const hasNoShelfCases = activeRackCases.some(c => !c.shelf_number || c.shelf_number.trim() === '');
+  if (hasNoShelfCases && !displayShelves.includes('?')) {
+    displayShelves.unshift('?');
+  }
+
   const unassignedCases = allCases.filter((c) => !c.rack_number || !c.shelf_number);
 
   // Statistics
@@ -368,8 +382,9 @@ export default function RackVisualizerScreen() {
 
   return (
     <ScreenBackground>
-      <View style={styles.mainContainer}>
-        {/* Search Coordinates Header */}
+      <DraxProvider>
+        <View style={styles.mainContainer}>
+          {/* Search Coordinates Header */}
         <View style={styles.searchContainer}>
           <Searchbar
             placeholder="Search files inside physical racks..."
@@ -518,14 +533,19 @@ export default function RackVisualizerScreen() {
                     <Text variant="bodySmall">
                       File: {item.file_number} • Case: {item.case_number}
                     </Text>
+                    {item.rack_number ? (
+                      <Text variant="bodySmall" style={{ color: theme.colors.error, marginTop: 2, fontWeight: 'bold' }}>
+                        Rack: {item.rack_number} • Shelf Missing
+                      </Text>
+                    ) : null}
                   </View>
                   <Button
                     mode="contained"
                     icon="map-marker-plus"
                     onPress={() => {
                       setAssignCase(item);
-                      setEditRack(racks[0] || '1');
-                      setEditShelf('1');
+                      setEditRack(item.rack_number || racks[0] || '1');
+                      setEditShelf('');
                       setEditPosition('1');
                       setAssignDialogVisible(true);
                     }}
@@ -539,7 +559,7 @@ export default function RackVisualizerScreen() {
         ) : (
           /* SIDE-BY-SIDE HORIZONTAL CAROUSEL OF SHELVES */
           <View style={styles.horizontalShelvesWrapper}>
-            <ScrollView
+            <DraxScrollView
               ref={shelfScrollViewRef}
               horizontal
               showsHorizontalScrollIndicator={true}
@@ -550,7 +570,12 @@ export default function RackVisualizerScreen() {
             >
               {displayShelves.map((shelfName) => {
                 const shelfCases = activeRackCases
-                  .filter((c) => c.shelf_number === shelfName)
+                  .filter((c) => {
+                    if (shelfName === '?') {
+                      return !c.shelf_number || c.shelf_number.trim() === '';
+                    }
+                    return c.shelf_number === shelfName;
+                  })
                   .sort((a, b) => {
                     const posA = parseInt(a.position_number || '0', 10);
                     const posB = parseInt(b.position_number || '0', 10);
@@ -558,11 +583,30 @@ export default function RackVisualizerScreen() {
                   });
 
                 return (
-                  <View key={shelfName} style={styles.shelfColumnContainer}>
+                  <DraxView
+                    key={shelfName}
+                    style={styles.shelfColumnContainer}
+                    receivingStyle={{ backgroundColor: 'rgba(255, 255, 255, 0.15)', borderWidth: 1, borderColor: theme.colors.primary }}
+                    onReceiveDragDrop={async (event) => {
+                      const droppedCase = event.dragged.payload as Case;
+                      const targetShelf = shelfName === '?' ? '' : shelfName;
+                      if (droppedCase.shelf_number !== targetShelf) {
+                        try {
+                          await updateCase(droppedCase.id!, droppedCase, { shelf_number: targetShelf }, 'Admin');
+                          loadVisualizerData();
+                        } catch (e) {
+                          console.error(e);
+                          Alert.alert('Error', 'Failed to update shelf location.');
+                        }
+                      }
+                    }}
+                  >
                     {/* Shelf Header Brass Plate */}
                     <View style={styles.brassPlateContainer}>
                       <View style={styles.brassPlate}>
-                        <Text style={styles.brassPlateText}>SHELF {shelfName.toUpperCase()}</Text>
+                        <Text style={styles.brassPlateText}>
+                          {shelfName === '?' ? 'MISSING SHELF' : `SHELF ${shelfName.toUpperCase()}`}
+                        </Text>
                       </View>
                       <Badge size={20} style={styles.shelfCasesBadge}>
                         {shelfCases.length}
@@ -570,7 +614,7 @@ export default function RackVisualizerScreen() {
                     </View>
 
                     {/* Vertical stack of horizontal laying folders inside this shelf column */}
-                    <ScrollView
+                    <DraxScrollView
                       style={styles.shelfColumnStackScroll}
                       contentContainerStyle={styles.shelfColumnStackContent}
                       showsVerticalScrollIndicator={false}
@@ -598,15 +642,15 @@ export default function RackVisualizerScreen() {
                           </Text>
                         </View>
                       )}
-                    </ScrollView>
+                    </DraxScrollView>
 
                     {/* Cabinet horizontal wood bottom ledge for this column */}
                     <View style={styles.woodLedge} />
                     <View style={styles.woodLedgeShadow} />
-                  </View>
+                  </DraxView>
                 );
               })}
-            </ScrollView>
+            </DraxScrollView>
           </View>
         )}
 
@@ -905,6 +949,7 @@ export default function RackVisualizerScreen() {
           </Dialog>
         </Portal>
       </View>
+      </DraxProvider>
     </ScreenBackground>
   );
 }
@@ -1097,7 +1142,6 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 3,
   },
   folderTouchable: {
-    marginBottom: 8,
     width: '100%',
   },
   folderContainer: {

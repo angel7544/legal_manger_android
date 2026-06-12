@@ -99,20 +99,7 @@ export default function TabsLayout() {
           ),
         }}
       />
-      <Tabs.Screen
-        name="search"
-        options={{
-          title: 'Instant Search',
-          tabBarLabel: 'Search',
-          tabBarIcon: ({ color, size, focused }) => (
-            <MaterialCommunityIcons 
-              name={focused ? "file-search" : "file-search-outline"} 
-              size={size + (focused ? 1 : 0)} 
-              color={color} 
-            />
-          ),
-        }}
-      />
+
       <Tabs.Screen
         name="settings"
         options={{

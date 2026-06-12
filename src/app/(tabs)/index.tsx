@@ -290,7 +290,7 @@ export default function DashboardScreen() {
                 const statusColor = isCompleted ? '#38a169' : isAttended ? '#3182ce' : isAdjourned ? '#dd6b20' : '#718096';
                 
                 return (
-                  <Card key={item.id} style={styles.agendaCard} elevation={1}>
+                  <Card key={item.id} style={[styles.agendaCard, { backgroundColor: theme.colors.surface }]} elevation={1}>
                     <Card.Content style={styles.agendaContent}>
                       <TouchableOpacity 
                         style={styles.agendaLeft}
@@ -566,7 +566,6 @@ const styles = StyleSheet.create({
   agendaCard: {
     marginBottom: 8,
     borderRadius: 10,
-    backgroundColor: '#ffffff',
   },
   agendaContent: {
     flexDirection: 'row',

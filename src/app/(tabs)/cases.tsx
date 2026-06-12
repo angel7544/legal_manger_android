@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { View, StyleSheet, FlatList, Alert } from 'react-native';
-import { Text, Card, FAB, useTheme, ActivityIndicator, Divider, Chip, Checkbox, Button, Portal, Dialog, IconButton } from 'react-native-paper';
+import { Text, Card, FAB, useTheme, ActivityIndicator, Divider, Chip, Checkbox, Button, Portal, Dialog, IconButton, Searchbar } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import QRCode from 'react-native-qrcode-svg';
@@ -14,6 +14,9 @@ export default function CasesScreen() {
   const router = useRouter();
   const [cases, setCases] = useState<Case[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const queryRef = useRef(searchQuery);
+  queryRef.current = searchQuery;
 
   const qrRefs = useRef<{[key: number]: any}>({});
   const [isSelectMode, setIsSelectMode] = useState(false);
@@ -100,28 +103,30 @@ export default function CasesScreen() {
     }, 600);
   };
 
+  const fetchCases = async (query: string) => {
+    setLoading(true);
+    try {
+      const data = await searchCases(query);
+      setCases(data);
+    } catch (error) {
+      console.error('Error loading cases:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useFocusEffect(
     useCallback(() => {
-      let isMounted = true;
-      async function loadCases() {
-        try {
-          // Empty query returns all cases ordered by created_at DESC
-          const data = await searchCases('');
-          if (isMounted) {
-            setCases(data);
-            setLoading(false);
-          }
-        } catch (error) {
-          console.error('Error loading cases:', error);
-          if (isMounted) setLoading(false);
-        }
-      }
-      loadCases();
-      return () => {
-        isMounted = false;
-      };
+      fetchCases(queryRef.current);
     }, [])
   );
+
+  React.useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      fetchCases(searchQuery);
+    }, 150);
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchQuery]);
 
   const getPriorityColor = (priority: string) => {
     switch (priority?.toLowerCase()) {
@@ -212,7 +217,27 @@ export default function CasesScreen() {
   return (
     <ScreenBackground>
       <View style={[styles.container, { backgroundColor: 'transparent' }]}>
-      {loading ? (
+      
+      {/* Search Bar Container */}
+      <View style={styles.searchContainer}>
+        <Searchbar
+          placeholder="Search files by client, file, phone..."
+          onChangeText={setSearchQuery}
+          value={searchQuery}
+          elevation={1}
+          style={styles.searchbar}
+          clearIcon={() => searchQuery ? (
+            <IconButton 
+              icon="close" 
+              size={20} 
+              style={{ margin: 0 }} 
+              onPress={() => setSearchQuery('')} 
+            />
+          ) : null}
+        />
+      </View>
+
+      {loading && cases.length === 0 ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.primary} />
         </View>
@@ -339,6 +364,16 @@ export default function CasesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  searchContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 4,
+  },
+  searchbar: {
+    borderRadius: 12,
+    height: 48,
+    backgroundColor: '#ffffff',
   },
   loadingContainer: {
     flex: 1,

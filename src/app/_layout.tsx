@@ -8,6 +8,7 @@ import { View, useColorScheme } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync().catch(() => {
@@ -174,8 +175,10 @@ export default function RootLayout() {
   };
 
   return (
-    <SafeAreaProvider>
-      {renderContent()}
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        {renderContent()}
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
