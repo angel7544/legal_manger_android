@@ -335,7 +335,8 @@ export default function LogHearingTabScreen() {
                       <TouchableOpacity onPress={() => {
                         setSelectedCase(null);
                         setEditingHearingId(null);
-                      }} style={styles.changeBadge}>
+                      }} style={[styles.changeBadge, { flexDirection: 'row', alignItems: 'center' }]}>
+                        <MaterialCommunityIcons name="swap-horizontal" size={16} color={theme.colors.primary} style={{ marginRight: 4 }} />
                         <Text style={[styles.changeText, { color: theme.colors.primary }]}>Switch Case</Text>
                       </TouchableOpacity>
                     )}
@@ -722,6 +723,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
     marginBottom: 10,
   },
   caseTag: {
@@ -729,6 +732,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     backgroundColor: 'rgba(0,0,0,0.05)',
     borderRadius: 4,
+    flexShrink: 1,
   },
   caseTagText: {
     fontSize: 9,
